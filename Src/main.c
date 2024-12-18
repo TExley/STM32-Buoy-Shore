@@ -167,6 +167,7 @@ int main(void)
 
 			if (nRF24_payload[NRF24_CHECK_BIT] == NRF24_BODY_CHECK && transmitting) // 3
 			{
+				transmit_start_time = HAL_GetTick();
 				uint8_t payload_size = nRF24_payload[0] & 0b00000111;
 				uint16_t start_ind;
 				memcpy(&start_ind, nRF24_payload + 1, sizeof(uint16_t)); // 1, 2
@@ -174,12 +175,13 @@ int main(void)
 				if (start_ind + payload_size > sample_size) // Ignore packet with oob data
 					continue;
 
-				uint8_t data_ind = nRF24_payload[0] & 0b11111000 >> 3;
-				memcpy(data[data_ind] + start_ind, nRF24_payload + sizeof(uint32_t), payload_size); // 4 -> 31
+				uint8_t data_ind = (nRF24_payload[0] & 0b11111000) >> 3;
+				memcpy(data[data_ind] + start_ind, nRF24_payload + sizeof(uint32_t), payload_size * sizeof(float)); // 4 -> 31
 
 				if (start_ind + payload_size == sample_size)
 				{
-					sprintf(str, "Transmission %d%% complete.", (uint16_t) (data_ind + 1) * 100 / data_size);
+					sprintf(str, "Transmission %d%% complete.\r\n", (uint16_t) (data_ind + 1) * 100 / data_size);
+					serial_print(str);
 					if (data_ind + 1 == data_size) // If transmission is done
 					{
 						print_data(data_size, sample_size);
@@ -437,6 +439,9 @@ void print_data(uint8_t data_size, uint16_t sample_size)
 		serial_print("\r\n");
 	}
 
+	for (int i = 0; i < data_size; i++)
+		free(data[i]);
+	free(data);
 }
 /* USER CODE END 4 */
 
