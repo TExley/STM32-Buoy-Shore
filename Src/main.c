@@ -148,9 +148,6 @@ int main(void)
 	uint32_t data_col_start, data_col_end, data_proc_end, transmit_start_time;
 	bool transmitting = false;
 
-	//uint32_t *bits = (uint32_t *) &(data_outf[i][n + j]);
-	//sprintf(str, "%hu %hu %hu\r\n", nRF24_payload[0], nRF24_payload[1], nRF24_payload[2]);
-	//serial_print(str);
 	// NRF24_HEADER_CHECK
 	nRF24_ClearIRQFlags(); // clear any pending IRQ bits
 	nRF24_CE_H; // start receiving
@@ -182,7 +179,7 @@ int main(void)
 
 				if (start_ind + payload_size == sample_size)
 				{
-					sprintf(str, "Transmition %d%% complete.", (uint16_t) (data_ind + 1) * 100 / data_size);
+					sprintf(str, "Transmission %d%% complete.", (uint16_t) (data_ind + 1) * 100 / data_size);
 					if (data_ind + 1 == data_size) // If transmission is done
 					{
 						print_data(data_size, sample_size);
@@ -201,7 +198,7 @@ int main(void)
 				data_size = nRF24_payload[0]; // 0
 				if (!(data_size == SIZE_REQUIRED_DATA_ONLY || data_size == SIZE_SPECTRA_DATA_ONLY
 					|| data_size == SIZE_VALIDATION_DATA || data_size == SIZE_SPECTRA_DATA || data_size == SIZE_ALL_DATA))
-					continue; // Ingore if invalid size in header
+					continue; // Ignore if invalid size in header
 
 				memcpy(&sample_size, nRF24_payload + sizeof(uint8_t), sizeof(uint16_t)); // 1, 2
 				memcpy(&data_col_start, nRF24_payload + sizeof(uint32_t), sizeof(uint32_t)); // 4, 5, 6, 7
