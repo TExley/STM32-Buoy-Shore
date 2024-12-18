@@ -215,6 +215,10 @@ int main(void)
 				serial_print("Receiving data from Bouy01.\r\n");
 				sprintf(str, "Receiving %u arrays of length %u.\r\n", data_size, sample_size);
 				serial_print(str);
+				sprintf(str, "Data collection time was %lums.\r\n", data_col_end - data_col_start);
+				serial_print(str);
+				sprintf(str, "Data processing time was %lums.\r\n", data_proc_end - data_col_end);
+				serial_print(str);
 
 				transmit_start_time = HAL_GetTick();
 				transmitting = true;
@@ -417,6 +421,7 @@ void serial_print(const char* buffer)
 	HAL_UART_Transmit(&huart2, (uint8_t*) buffer, strlen(buffer), MAXIMUM_PRINT_TIMEOUT);
 }
 
+// Prints out data AND frees data arrays; Must be run before reusing malloc(data)
 void print_data(uint8_t data_size, uint16_t sample_size)
 {
 	uint8_t data_name_offset = (data_size == SIZE_VALIDATION_DATA || data_size == SIZE_ALL_DATA)
