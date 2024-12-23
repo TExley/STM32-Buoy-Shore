@@ -215,7 +215,7 @@ int main(void)
 
 				serial_print("Data memory addresses: ");
 				uint8_t data_index = 0;
-				for (int data_index = 0; data_index < data_size; data_index++)
+				for (data_index = 0; data_index < data_size; data_index++)
 				{
 					data[data_index] = (float*) calloc(sizeof(float), sample_size);
 					sprintf(str, "%lu, ", (uint32_t) data[data_index]);
