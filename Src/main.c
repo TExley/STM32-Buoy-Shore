@@ -67,7 +67,6 @@ const uint8_t NRF24_BODY_CHECK = 0b0;
 const uint8_t NRF24_CHECK_BIT = 3;
 
 const char* data_names[SIZE_ALL_DATA] = {"Rhq\0", "Phih\0", "gamma2\0", "gamma3\0", "lambda\0", "r1\0", "a1\0", "r2\0", "a2\0", "C11m\0", "C22m\0", "C33m\0", "C23m\0", "Q12m\0", "C12m\0", "Q13m\0", "C13m\0", "Q23m\0"};
-float** data;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,6 +82,7 @@ void print_data(uint8_t data_size, uint16_t sample_size);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 char str[MAX_PRINT_LENGTH];
+float* data[SIZE_ALL_DATA] = {0};
 /* USER CODE END 0 */
 
 /**
@@ -146,7 +146,7 @@ int main(void)
 	transmit_size data_size;
 
 	uint32_t data_col_start, data_col_end, data_proc_end, transmit_start_time;
-	bool transmitting = false;
+	bool transceiving = false;
 
 	// NRF24_HEADER_CHECK
 	nRF24_ClearIRQFlags(); // clear any pending IRQ bits
@@ -165,7 +165,7 @@ int main(void)
     		// Clear all pending IRQ flags
 			nRF24_ClearIRQFlags();
 
-			if (nRF24_payload[NRF24_CHECK_BIT] == NRF24_BODY_CHECK && transmitting) // 3
+			if (nRF24_payload[NRF24_CHECK_BIT] == NRF24_BODY_CHECK && transceiving) // 3
 			{
 				transmit_start_time = HAL_GetTick();
 				uint8_t payload_size = nRF24_payload[0] & 0b00000111;
@@ -176,25 +176,30 @@ int main(void)
 					continue;
 
 				uint8_t data_ind = (nRF24_payload[0] & 0b11111000) >> 3;
-				memcpy(data[data_ind] + start_ind, nRF24_payload + sizeof(uint32_t), payload_size * sizeof(float)); // 4 -> 31
+
+				if (data_ind >= data_size)
+					continue;
+
+				memcpy(&data[data_ind][start_ind], nRF24_payload + sizeof(uint32_t), payload_size * sizeof(float)); // 4 -> 31
 
 				if (start_ind + payload_size == sample_size)
 				{
 					sprintf(str, "Transmission %d%% complete.\r\n", (uint16_t) (data_ind + 1) * 100 / data_size);
 					serial_print(str);
+
 					if (data_ind + 1 == data_size) // If transmission is done
 					{
 						print_data(data_size, sample_size);
-						transmitting = false;
+						transceiving = false;
 					}
 				}
 
 			} else if (nRF24_payload[NRF24_CHECK_BIT] == NRF24_HEADER_CHECK) // 3
 			{
-				if (transmitting)
+				if (transceiving)
 				{
 					print_data(data_size, sample_size);
-					transmitting = false;
+					transceiving = false;
 				}
 
 				data_size = nRF24_payload[0]; // 0
@@ -208,9 +213,26 @@ int main(void)
 				memcpy(&data_proc_end, nRF24_payload + sizeof(uint32_t) * 3, sizeof(uint32_t)); // 12, 13, 14, 15
 				// 16 -> 31 bits unused in header
 
-				data = (float**) malloc(sizeof(float) * data_size);
-				for (int i = 0; i < data_size; i++)
-					data[i] = (float*) calloc(sizeof(float), sample_size);
+				serial_print("Data memory addresses: ");
+				uint8_t data_index = 0;
+				for (int data_index = 0; data_index < data_size; data_index++)
+				{
+					data[data_index] = (float*) calloc(sizeof(float), sample_size);
+					sprintf(str, "%lu, ", (uint32_t) data[data_index]);
+					serial_print(str);
+
+					if (data[data_index] == 0)
+						break;
+				}
+				serial_print("\r\n");
+				if (data_index < data_size)
+				{
+					serial_print("Insufficient Memory.\r\n");
+					for (int i = data_index - 1; i >= 0; i--)
+						free(data[i]);
+					transceiving = false;
+					continue;
+				}
 
 				serial_print("Receiving data from Bouy01.\r\n");
 				sprintf(str, "Receiving %u arrays of length %u.\r\n", data_size, sample_size);
@@ -221,13 +243,13 @@ int main(void)
 				serial_print(str);
 
 				transmit_start_time = HAL_GetTick();
-				transmitting = true;
+				transceiving = true;
 			}
-			// If checkbit is wrong we discard the packet
-    	} else if (transmitting && HAL_GetTick() - transmit_start_time >= MAX_PAYLOAD_PRINT_TIMEOUT)
+			// If check bit is wrong we discard the packet
+    	} else if (transceiving && HAL_GetTick() - transmit_start_time >= MAX_PAYLOAD_PRINT_TIMEOUT)
     	{
     		print_data(data_size, sample_size);
-    		transmitting = false;
+    		transceiving = false;
     	}
 
     /* USER CODE END WHILE */
@@ -337,7 +359,7 @@ static void MX_USART2_UART_Init(void)
   huart2.Init.Parity = UART_PARITY_NONE;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_8;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
   huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   if (HAL_UART_Init(&huart2) != HAL_OK)
@@ -446,7 +468,6 @@ void print_data(uint8_t data_size, uint16_t sample_size)
 
 	for (int i = 0; i < data_size; i++)
 		free(data[i]);
-	free(data);
 }
 /* USER CODE END 4 */
 
